@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Claudy Day</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Chewy&display=swap">
+<style>
+/* Layout: one full-screen canvas "sky" with the cup storm; floating bubble HUD on top (counter top-left, controls top-right, model chips along the bottom). Single deliberate light, cartoon-sky look. */
+:root {
+  --sky-top: #FCFEFF;
+  --sky-bot: #FCFEFF; /* graph paper */
+  --ink: #12336B;
+  --blue: #1673FF;
+  --deep: #0B47C9;
+  --foam: #FFFFFF;
+  --cheek: #FF8FB5;
+  --panel: rgba(255,255,255,0.88);
+  --panel-line: rgba(18,51,107,0.14);
+  --display: 'Chewy', 'Baloo 2', ui-rounded, system-ui, sans-serif;
+  --body: 'Baloo 2', ui-rounded, 'Segoe UI', system-ui, sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--sky-bot); color: var(--ink); font-family: var(--body); overflow: hidden; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--sky-top); }
+
+#back, #glc { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+#sky { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#sky:active { cursor: grabbing; }
+
+.bubble {
+  font-family: var(--display);
+  color: var(--foam);
+  -webkit-text-stroke: 0.22em var(--deep);
+  paint-order: stroke fill;
+  text-shadow: 0 0.09em 0 var(--ink), 0 0.16em 0.12em rgba(18,51,107,0.25);
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.hud {
+  position: fixed; left: 0; right: 0; top: 0;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start;
+  pointer-events: none;
+}
+.hud > * { pointer-events: auto; }
+.count-card { display: grid; gap: 6px; min-width: 0; }
+.title { font-size: clamp(20px, 3.2vw, 28px); }
+.total { font-size: clamp(44px, 9vw, 86px); font-variant-numeric: tabular-nums; }
+.total small { font-size: 0.42em; }
+.sub {
+  background: var(--panel); border: 2px solid var(--panel-line); border-radius: 999px;
+  padding: 4px 14px; font-weight: 600; font-size: 14px; width: fit-content; max-width: 100%;
+  font-variant-numeric: tabular-nums; box-shadow: 0 3px 0 rgba(18,51,107,0.08);
+}
+.sub b { font-weight: 800; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 420px; }
+
+button, select, .file-label {
+  font: 700 15px/1 var(--body); color: var(--ink);
+  background: var(--foam); border: 2.5px solid var(--ink); border-radius: 999px;
+  padding: 9px 16px 8px; cursor: pointer;
+  box-shadow: 0 4px 0 var(--ink); transition: transform .08s, box-shadow .08s, background .15s;
+}
+button:hover, .file-label:hover { background: #E3F3FF; }
+button:active, .file-label:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+button:focus-visible, select:focus-visible, .file-label:focus-within, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+button.primary { background: var(--blue); color: var(--foam); }
+button.primary:hover { background: var(--deep); }
+button.round { width: 42px; height: 42px; padding: 0; font-size: 22px; display: grid; place-items: center; }
+
+
+.hint {
+  position: fixed; left: 50%; top: calc(50% + min(22vh, 22vw)); transform: translateX(-50%);
+  text-align: center; pointer-events: none; transition: opacity .4s; display: grid; gap: 8px; width: max-content; max-width: calc(100vw - 32px);
+}
+.hint .big { font-size: clamp(32px, min(8vw, 8vh), 76px); }
+.hint .small { font-weight: 700; font-size: clamp(18px, min(2.8vw, 3vh), 28px); background: var(--panel); border-radius: 999px; padding: 0.3em 0.9em; justify-self: center; }
+
+.legend {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+}
+.legend::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: grid; gap: 1px; text-align: left; border-radius: 18px; padding: 8px 14px 7px; box-shadow: 0 4px 0 var(--ink);
+  animation: chip-pop .32s cubic-bezier(.3,1.6,.5,1) both; /* replays each time the chip un-hides */
+}
+@keyframes chip-pop { from { transform: translateY(14px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .chip { animation: none; } }
+.chip .n { font: 400 20px/1 var(--display); color: var(--blue); font-variant-numeric: tabular-nums; }
+.chip .m { font-size: 13px; font-weight: 700; }
+.switch { flex-basis: 100%; display: flex; justify-content: flex-end; align-items: center; gap: 10px; cursor: pointer; font-weight: 800; font-size: 15px; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch .track { width: 52px; height: 30px; border-radius: 999px; background: var(--foam); border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); position: relative; transition: background .2s; flex: none; }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: var(--cheek); border: 2.5px solid var(--ink); transition: transform .22s cubic-bezier(.3,1.6,.5,1); }
+.switch input:checked + .track { background: var(--blue); }
+.switch input:checked + .track .knob { transform: translateX(22px); background: #FFD23F; }
+.switch input:focus-visible + .track { outline: 3px solid var(--blue); outline-offset: 3px; }
+.switch-label { background: var(--panel); border-radius: 999px; padding: 3px 10px; }
+.chip .e { font-size: 12px; font-weight: 700; color: #E64C9A; font-variant-numeric: tabular-nums; }
+
+.sheet-wrap { position: fixed; inset: 0; background: rgba(18,51,107,0.35); display: grid; place-items: center; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+.sheet {
+  background: var(--foam); border: 3px solid var(--ink); border-radius: 28px; box-shadow: 0 8px 0 var(--ink);
+  width: min(560px, 100%); max-height: calc(100% - 20px); overflow: auto; padding: 22px 22px 20px; display: grid; gap: 14px;
+}
+.sheet h2 { margin: 0; font-size: 34px; font-weight: 400; }
+.sheet p { margin: 0; line-height: 1.45; font-size: 15px; }
+.sheet code { background: #E3F3FF; border-radius: 6px; padding: 1px 6px; font-size: 0.92em; font-family: ui-monospace, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.drop {
+  border: 3px dashed var(--blue); border-radius: 20px; padding: 18px; text-align: center; display: grid; gap: 10px; justify-items: center; background: #F2FAFF;
+}
+.drop.over { background: #D8EEFF; }
+.file-label input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+textarea {
+  width: 100%; box-sizing: border-box; min-height: 92px; resize: vertical; border: 2.5px solid var(--ink); border-radius: 16px; padding: 10px 12px;
+  font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); background: var(--foam);
+}
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.msg { font-weight: 700; font-size: 14px; min-height: 1.2em; }
+.msg.err { color: #C2185B; }
+label.rate { display: grid; gap: 4px; font-weight: 700; font-size: 14px; }
+select { box-shadow: 0 3px 0 var(--ink); padding: 8px 12px; }
+details { border-top: 2px solid var(--panel-line); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 800; }
+details ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.5; font-size: 14px; }
+details a { color: var(--deep); font-weight: 700; }
+
+@media (max-width: 560px) {
+  .tools { max-width: none; justify-content: flex-start; }
+  .tools .wide { display: none; }
+}
+</style>
+
+<canvas id="back" aria-hidden="true"></canvas>
+<canvas id="glc" aria-hidden="true"></canvas>
+<canvas id="sky" aria-label="Cartoon cups of water, one big glass per Claude model. Scroll or pinch to zoom, drag to move."></canvas>
+
+<div class="hud">
+  <div class="count-card">
+    <div class="title bubble">Claudy Day</div>
+    <div class="total bubble" title="Cups on screen"><span id="total">0</span> <small id="totalUnit">cups</small></div>
+    <div class="sub" id="sub">&nbsp;</div>
+  </div>
+  <div class="tools" role="toolbar" aria-label="View controls">
+    <button class="round" id="zin" aria-label="Zoom in" title="Zoom in">+</button>
+    <button class="round" id="zout" aria-label="Zoom out" title="Zoom out">&minus;</button>
+    <button id="storm" class="primary">Per-model breakdown</button>
+    <button id="giant">All</button>
+    <button id="one" class="wide">One cup</button>
+    <button id="load">Load my usage</button>
+    <label class="switch" for="ground"><input type="checkbox" id="ground" role="switch"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="switch-label">Ground numbers</span></label>
+  </div>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big bubble">This is one cup of water.</div>
+  <div class="small">Scroll out to see every model</div>
+</div>
+
+<nav class="legend" id="legend" aria-label="Models"></nav>
+
+<div class="sheet-wrap" id="sheetWrap" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h2 class="bubble" id="sheetTitle">Load your usage</h2>
+    <p>Claude Code keeps its stats on the computer you ran it on, inside the hidden <code>.claude</code> folder in your home folder. Drop in <code>stats-cache.json</code> (what <code>/stats</code> reads), or any session logs (<code>.jsonl</code>) from <code>.claude/projects</code>. Several files at once are added together.</p>
+    <div class="drop" id="drop">
+      <div class="bubble" style="font-size:24px">Drop files here</div>
+      <label class="file-label">Choose files<input type="file" id="file" multiple accept=".json,.jsonl,.txt,application/json,text/plain"></label>
+    </div>
+    <p>Or press <b>Ctrl+S</b> on the Models tab of <code>/stats</code> and paste it below.</p>
+    <p>Start Claudy Day with <code>python serve.py</code> and it reads <code>stats-cache.json</code> straight from your <code>.claude</code> folder, refreshing every minute. Opened as a plain file, whatever you load here is remembered in this browser instead.</p>
+    <textarea id="paste" placeholder="Fable (36.7%)&#10;In: 2.8m · Out: 47.9m&#10;Cache: 13.0b read · 260.8m write"></textarea>
+    <div class="row">
+      <button class="primary" id="usePaste">Use pasted text</button>
+      <button id="useSample">Back to screenshot numbers</button>
+    </div>
+    <div class="msg" id="msg" role="status"></div>
+    <label class="rate">Water counted
+      <select id="rate">
+        <option value="full">Cooling + power plants (3.6 mL per Wh)</option>
+        <option value="cooling">Data-centre cooling only (1.15 mL per Wh)</option>
+      </select>
+    </label>
+    <details>
+      <summary>How the cups are estimated</summary>
+      <ul>
+        <li>Energy per 1,000 tokens: 0.96 Wh output, 0.32 Wh input, 0.40 Wh cache write, 0.032 Wh cache read, plus 10% data-centre overhead (per-token method built on Watershed's framework).</li>
+        <li>Water per Wh: 3.6 mL at US averages including power plants, or 1.15 mL for cooling only (Google's measured rate).</li>
+        <li>1 burger = about 2,400 L (the full supply-chain water footprint of a 150 g beef burger). 1 chocolate bar (100 g, dark chocolate is vegan) = about 1,700 L, mostly the water to grow cocoa. 1 toilet roll = about 6 US gallons (23 L) to manufacture; some estimates go as high as 37 gallons.</li>
+        <li>1 cup = 236.6 mL (US cup). Anthropic publishes no per-token water figures, so treat this as an order-of-magnitude estimate.</li>
+        <li>Sources: <a href="https://arxiv.org/pdf/2508.15734" target="_blank" rel="noopener">Google, Gemini footprint paper</a>, <a href="https://watershed.com/blog/ai-emissions-framework" target="_blank" rel="noopener">Watershed AI emissions framework</a>, <a href="https://mistral.ai/news/our-contribution-to-a-global-environmental-standard-for-ai" target="_blank" rel="noopener">Mistral lifecycle analysis</a>.</li>
+      </ul>
+    </details>
+    <div class="row" style="justify-content:flex-end"><button id="close">Done</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const WH = { in: 0.32, out: 0.96, read: 0.032, write: 0.40 };
+const RATES = { full: 3.6, cooling: 1.15 };
+const OVERHEAD = 1.1, CUP_ML = 236.6, MAX_DRAWN = 300000, SPACING = 0.58;
+const BURGER_ML = 2400000, CHOC_ML = 1700000, ROLL_ML = 22700; // ~2,400 L per beef burger; ~1,700 L per 100 g chocolate bar; ~6 US gal per toilet-paper roll
+// /stats screenshot numbers. Its labels were ambiguous ("Opus 5" twice); matched to model ids by their token counts in stats-cache.json.
+const SAMPLE = [
+  { name: 'Fable 5.1', id: 'claude-fable-5-1', in: 2.8e6, out: 47.9e6, read: 13.0e9, write: 260.8e6 },
+  { name: 'Opus 5', id: 'claude-opus-5', in: 703.0e3, out: 50.3e6, read: 8.9e9, write: 342.2e6 },
+  { name: 'Opus 5.5', id: 'claude-opus-5-5', in: 38.4e3, out: 11.8e6, read: 7.9e9, write: 114.5e6 },
+  { name: 'Fable 5', id: 'claude-fable-5', in: 471.7e3, out: 26.2e6, read: 4.8e9, write: 126.8e6 },
+  { name: 'Sonnet 5', id: 'claude-sonnet-5', in: 55.8e3, out: 2.0e6, read: 304.1e6, write: 13.5e6 },
+  { name: 'Sonnet 5.5', id: 'claude-sonnet-5-5', in: 1.7e3, out: 619.3e3, read: 153.6e6, write: 3.7e6 },
+  { name: 'Haiku 4.5', id: 'claude-haiku-4-5-20251001', in: 144.1e3, out: 317.0e3, read: 96.4e6, write: 7.9e6 },
+  { name: 'Opus 4.8', id: 'claude-opus-4-8', in: 5.0e3, out: 17.6e3, read: 2.6e6, write: 5.1e3 },
+];
+// Water: light blue and translucent so the graph paper shows through; the GL water shader uses the same numbers.
+const WATER = { top: [125, 205, 255], mid: [86, 172, 255], bot: [52, 134, 242], foam: [205, 240, 255], a: 0.72, foamA: 0.88 };
+const GLASS_FILL = 'rgba(226,245,255,0.5)';
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+function waterGrad(g, y0, y1) { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, rgba(WATER.top, WATER.a)); gr.addColorStop(0.55, rgba(WATER.mid, WATER.a)); gr.addColorStop(1, rgba(WATER.bot, WATER.a)); return gr; }
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt = new Intl.NumberFormat('en-US');
+const fmt1 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+const $ = id => document.getElementById(id);
+
+let models = SAMPLE, source = 'Numbers from your /stats screenshots', rate = 'full', ground = false;
+try { const r = localStorage.getItem('cupstorm.rate'); if (r && RATES[r]) rate = r; } catch (e) {}
+$('rate').value = rate;
+try { ground = localStorage.getItem('cupstorm.ground') === '1'; } catch (e) {}
+$('ground').checked = ground;
+
+/* ---------- sprite: a cute cartoon cup of very blue water ---------- */
+function makeSprite(S, opts = {}) { const c = document.createElement('canvas'); c.width = c.height = S; drawCup(c.getContext('2d'), S, opts); return c; }
+function drawCup(g, S, opts = {}) {
+  const lw = Math.max(1, S * 0.045);
+  const top = S * 0.12, bot = S * 0.93, tl = S * 0.15, tr = S * 0.85, bl = S * 0.27, br = S * 0.73, rr = S * 0.05;
+  const glass = new Path2D();
+  glass.moveTo(tl, top); glass.lineTo(bl, bot - rr); glass.quadraticCurveTo(bl + S * 0.01, bot, bl + rr, bot);
+  glass.lineTo(br - rr, bot); glass.quadraticCurveTo(br - S * 0.01, bot, br, bot - rr); glass.lineTo(tr, top); glass.closePath();
+  if (!opts.overlay) { g.fillStyle = GLASS_FILL; g.fill(glass); } // overlay: just face, bubbles and outline, over water drawn elsewhere
+  g.save(); g.clip(glass);
+  if (!opts.empty) {
+  const wl = S * 0.33, amp = S * 0.02;
+  const wave = (y0) => { for (let x = 0; x <= S; x += S / 32) g.lineTo(x, y0 + Math.sin(x / S * Math.PI * 5) * amp); };
+  if (!opts.overlay) {
+  g.fillStyle = waterGrad(g, wl, bot); g.beginPath(); g.moveTo(0, wl + S * 0.045); wave(wl + S * 0.045); g.lineTo(S, S); g.lineTo(0, S); g.closePath(); g.fill(); // under the foam band, so the translucent fills don't stack
+  g.fillStyle = rgba(WATER.foam, WATER.foamA); g.beginPath(); g.moveTo(0, wl); wave(wl); g.lineTo(S, wl + S * 0.045); for (let x = S; x >= 0; x -= S / 32) g.lineTo(x, wl + S * 0.045 + Math.sin(x / S * Math.PI * 5) * amp); g.closePath(); g.fill();
+  }
+  if (S >= 24) {
+    g.fillStyle = 'rgba(255,255,255,0.6)';
+    [[0.63, 0.80, 0.03], [0.68, 0.71, 0.018], [0.37, 0.84, 0.022], [0.56, 0.88, 0.014]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x * S, y * S, r * S, 0, Math.PI * 2); g.fill(); });
+    // face
+    g.strokeStyle = '#0E2A5C'; g.lineWidth = lw * 0.8; g.lineCap = 'round';
+    if (opts.blink) [0.41, 0.59].forEach(x => { g.beginPath(); g.arc(x * S, 0.57 * S, 0.035 * S, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); });
+    else {
+      g.fillStyle = '#0E2A5C';
+      [0.41, 0.59].forEach(x => { g.beginPath(); g.arc(x * S, 0.585 * S, 0.04 * S, 0, Math.PI * 2); g.fill(); });
+      g.fillStyle = '#FFFFFF';
+      [0.41, 0.59].forEach(x => { g.beginPath(); g.arc((x - 0.013) * S, 0.57 * S, 0.014 * S, 0, Math.PI * 2); g.fill(); });
+    }
+    g.beginPath(); g.arc(0.5 * S, 0.625 * S, 0.055 * S, 0.18 * Math.PI, 0.82 * Math.PI); g.stroke();
+  }
+  }
+  g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = S * 0.05; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(0.23 * S, 0.22 * S); g.lineTo(0.31 * S, 0.8 * S); g.stroke();
+  g.restore();
+  g.lineJoin = 'round'; g.lineWidth = lw; g.strokeStyle = '#12336B'; g.stroke(glass);
+  g.beginPath(); g.ellipse(S * 0.5, top, (tr - tl) / 2, S * 0.035, 0, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(240,250,255,0.95)'; g.fill(); g.stroke();
+}
+function rrect(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function face(g, S, ex1, ex2, ey, blink) {
+  g.strokeStyle = '#12336B'; g.lineWidth = S * 0.026; g.lineCap = 'round';
+  if (blink) [ex1, ex2].forEach(x => { g.beginPath(); g.arc(x * S, (ey - 0.015) * S, 0.03 * S, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke(); });
+  else {
+    g.fillStyle = '#12336B';
+    [ex1, ex2].forEach(x => { g.beginPath(); g.arc(x * S, ey * S, 0.035 * S, 0, Math.PI * 2); g.fill(); });
+    g.fillStyle = '#FFFFFF';
+    [ex1, ex2].forEach(x => { g.beginPath(); g.arc((x - 0.012) * S, (ey - 0.013) * S, 0.012 * S, 0, Math.PI * 2); g.fill(); });
+  }
+  const mx = (ex1 + ex2) / 2;
+  g.beginPath(); g.arc(mx * S, (ey + 0.035) * S, 0.045 * S, 0.18 * Math.PI, 0.82 * Math.PI); g.stroke();
+}
+function drawBurger(g, S, opts = {}) {
+  const P = v => v * S, ink = '#12336B';
+  g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = S * 0.04; g.strokeStyle = ink;
+  rrect(g, P(0.14), P(0.70), P(0.72), P(0.16), P(0.08)); g.fillStyle = '#FFB34D'; g.fill(); g.stroke();
+  rrect(g, P(0.10), P(0.57), P(0.80), P(0.15), P(0.075)); g.fillStyle = '#8B4A22'; g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(P(.11), P(.55)); g.lineTo(P(.89), P(.55)); g.lineTo(P(.80), P(.63)); g.lineTo(P(.70), P(.56)); g.lineTo(P(.58), P(.67)); g.lineTo(P(.47), P(.56)); g.lineTo(P(.33), P(.64)); g.lineTo(P(.23), P(.56)); g.closePath();
+  g.fillStyle = '#FFD93B'; g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(P(.07), P(.47));
+  for (let x = 0.07; x < 0.93; x += 0.0717) g.quadraticCurveTo(P(x + 0.036), P(0.585), P(x + 0.0717), P(0.5));
+  g.lineTo(P(.93), P(.45)); g.lineTo(P(.07), P(.45)); g.closePath(); g.fillStyle = '#4CD964'; g.fill(); g.stroke();
+  const bun = g.createLinearGradient(0, P(.12), 0, P(.5)); bun.addColorStop(0, '#FFCF7A'); bun.addColorStop(1, '#FF9F2E');
+  g.beginPath(); g.moveTo(P(.09), P(.49)); g.bezierCurveTo(P(.09), P(.10), P(.91), P(.10), P(.91), P(.49)); g.closePath(); g.fillStyle = bun; g.fill(); g.stroke();
+  g.fillStyle = '#FFF7E0';
+  [[.30, .25, .4], [.46, .19, -.2], [.64, .23, .5], [.75, .34, -.4], [.22, .37, .2]].forEach(([x, y, a]) => { g.beginPath(); g.ellipse(P(x), P(y), P(.03), P(.016), a, 0, Math.PI * 2); g.fill(); });
+  face(g, S, 0.42, 0.58, 0.36, opts.blink);
+}
+function drawRoll(g, S, opts = {}) {
+  const P = v => v * S, ink = '#12336B';
+  g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = S * 0.04; g.strokeStyle = ink;
+  g.beginPath(); g.moveTo(P(.18), P(.24)); g.lineTo(P(.18), P(.80)); g.ellipse(P(.5), P(.80), P(.32), P(.09), 0, Math.PI, 0, true); g.lineTo(P(.82), P(.24)); g.closePath();
+  g.fillStyle = '#FFFFFF'; g.fill(); g.stroke();
+  g.fillStyle = '#9ED8FF';
+  [[.27, .40], [.30, .66], [.44, .74], [.57, .38]].forEach(([x, y]) => { g.beginPath(); g.arc(P(x), P(y), P(.025), 0, Math.PI * 2); g.fill(); });
+  g.fillStyle = '#FFB3D9';
+  [[.24, .53], [.52, .64]].forEach(([x, y]) => { g.beginPath(); g.arc(P(x), P(y), P(.02), 0, Math.PI * 2); g.fill(); });
+  g.beginPath(); g.ellipse(P(.5), P(.24), P(.32), P(.09), 0, 0, Math.PI * 2); g.fillStyle = '#F2F8FF'; g.fill(); g.stroke();
+  g.beginPath(); g.ellipse(P(.5), P(.24), P(.11), P(.035), 0, 0, Math.PI * 2); g.fillStyle = '#C98F55'; g.fill(); g.lineWidth = S * 0.03; g.stroke();
+  g.lineWidth = S * 0.04;
+  rrect(g, P(.63), P(.42), P(.19), P(.50), P(.03)); g.fillStyle = '#FFFFFF'; g.fill(); g.stroke();
+  g.setLineDash([P(.025), P(.025)]); g.lineWidth = S * 0.02;
+  g.beginPath(); g.moveTo(P(.65), P(.70)); g.lineTo(P(.80), P(.70)); g.stroke(); g.setLineDash([]);
+  face(g, S, 0.33, 0.49, 0.50, opts.blink);
+}
+function drawChoc(g, S, opts = {}) {
+  const P = v => v * S, ink = '#12336B';
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  g.translate(P(.5), P(.5)); g.rotate(-0.14); g.translate(-P(.5), -P(.5));
+  g.lineWidth = S * 0.04; g.strokeStyle = ink;
+  rrect(g, P(.25), P(.07), P(.50), P(.80), P(.06)); g.fillStyle = '#6E3B1C'; g.fill(); g.stroke();
+  g.lineWidth = S * 0.02; g.strokeStyle = '#4A240E';
+  for (let r = 0; r < 3; r++) for (let col = 0; col < 2; col++) {
+    rrect(g, P(.29 + col * .22), P(.11 + r * .115), P(.20), P(.095), P(.02)); g.fillStyle = '#8B4D26'; g.fill(); g.stroke();
+    g.fillStyle = 'rgba(255,220,180,0.35)'; rrect(g, P(.31 + col * .22), P(.125 + r * .115), P(.12), P(.02), P(.01)); g.fill();
+  }
+  // silver foil peeking out, then the bright wrapper
+  g.lineWidth = S * 0.035; g.strokeStyle = ink;
+  g.beginPath(); g.moveTo(P(.22), P(.50));
+  for (let i = 0; i <= 8; i++) g.lineTo(P(.22 + i * 0.07), P(i % 2 ? .43 : .47));
+  g.lineTo(P(.78), P(.56)); g.lineTo(P(.22), P(.56)); g.closePath(); g.fillStyle = '#DCE6F2'; g.fill(); g.stroke();
+  rrect(g, P(.21), P(.52), P(.58), P(.42), P(.07)); g.fillStyle = '#FF5FA2'; g.fill(); g.lineWidth = S * 0.04; g.stroke();
+  g.fillStyle = '#FFD23F'; rrect(g, P(.21), P(.60), P(.58), P(.07), P(.0)); g.fill();
+  g.fillStyle = '#FFFFFF';
+  g.beginPath(); g.arc(P(.465), P(.775), P(.04), Math.PI, 0); g.arc(P(.535), P(.775), P(.04), Math.PI, 0);
+  g.lineTo(P(.5), P(.86)); g.closePath(); g.fill();
+  face(g, S, 0.43, 0.57, 0.29, opts.blink);
+}
+// draw a vector object at (x, y) with size S, so it stays sharp at any zoom
+function vec(g, fn, x, y, S, opts) { g.save(); g.translate(x, y); fn(g, S, opts); g.restore(); }
+
+// The model's own glass, drawn as vectors so its outline stays a sensible width at any size.
+function glassPath(g, x, y, gs) {
+  const P = (u, v) => [x + u * gs, y + v * gs];
+  const top = 0.12, bot = 0.93, rr = 0.05;
+  g.beginPath(); g.moveTo(...P(0.15, top)); g.lineTo(...P(0.27, bot - rr));
+  g.quadraticCurveTo(...P(0.28, bot), ...P(0.27 + rr, bot)); g.lineTo(...P(0.73 - rr, bot));
+  g.quadraticCurveTo(...P(0.72, bot), ...P(0.73, bot - rr)); g.lineTo(...P(0.85, top)); g.closePath();
+}
+function glassBody(g, x, y, gs) { glassPath(g, x, y, gs); g.fillStyle = GLASS_FILL; g.fill(); }
+// Sprite-space height of the water surface once `frac` of a full glass has been poured in. The glass widens toward the
+// top, so the level climbs quickly at first and slower near the brim.
+const levelV = (() => {
+  const halfW = v => v <= 0.88 ? 0.35 - (v - 0.12) / 0.76 * 0.12 : 0.18 + Math.sqrt(Math.max(0, 0.0025 - (v - 0.88) ** 2));
+  const N = 256, vs = [], acc = []; let a = 0;
+  for (let i = 0; i <= N; i++) { const v = 0.93 - i / N * 0.6; if (i) a += halfW(v + 0.3 / N) * 2 * 0.6 / N; vs.push(v); acc.push(a); }
+  return frac => {
+    const want = Math.max(0, Math.min(1, frac)) * a; let i = 1;
+    while (i < N && acc[i] < want) i++;
+    const k = (want - acc[i - 1]) / ((acc[i] - acc[i - 1]) || 1);
+    return vs[i - 1] + (vs[i] - vs[i - 1]) * k;
+  };
+})();
+function glassWater(g, x, y, gs, frac) {
+  if (frac <= 0) return;
+  const v = levelV(frac), lvl = y + v * gs, amp = gs * 0.012 * Math.min(1, (0.93 - v) / 0.06); // shallow water, small ripples
+  g.save(); glassPath(g, x, y, gs); g.clip();
+  // body starts under the foam band so the two translucent fills don't stack
+  g.fillStyle = waterGrad(g, y + 0.33 * gs, y + 0.93 * gs); g.beginPath(); g.moveTo(x, lvl + gs * 0.04);
+  for (let u = 0; u <= 1.0001; u += 1 / 32) g.lineTo(x + u * gs, lvl + gs * 0.04 + Math.sin(u * Math.PI * 5) * amp);
+  g.lineTo(x + gs, y + gs); g.lineTo(x, y + gs); g.closePath(); g.fill();
+  g.fillStyle = rgba(WATER.foam, WATER.foamA); g.beginPath(); g.moveTo(x, lvl);
+  for (let u = 0; u <= 1.0001; u += 1 / 32) g.lineTo(x + u * gs, lvl + Math.sin(u * Math.PI * 5) * amp);
+  for (let u = 1; u >= -0.0001; u -= 1 / 32) g.lineTo(x + u * gs, lvl + gs * 0.04 + Math.sin(u * Math.PI * 5) * amp);
+  g.closePath(); g.fill();
+  g.restore();
+}
+function glassOutline(g, x, y, gs) {
+  const lw = Math.max(2, Math.min(9, gs * 0.03));
+  g.lineJoin = 'round'; g.lineWidth = lw; g.strokeStyle = '#12336B';
+  g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = Math.max(2, Math.min(14, gs * 0.04)); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x + 0.23 * gs, y + 0.22 * gs); g.lineTo(x + 0.31 * gs, y + 0.8 * gs); g.stroke();
+  g.lineWidth = lw; g.strokeStyle = '#12336B'; glassPath(g, x, y, gs); g.stroke();
+  g.beginPath(); g.ellipse(x + 0.5 * gs, y + 0.12 * gs, 0.35 * gs, 0.035 * gs, 0, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(240,250,255,0.95)'; g.fill(); g.stroke();
+}
+// Each model glass pours while it shrinks on screen from pourStart(cl) to POUR_END viewports tall, so small glasses fill
+// while you are still zoomed in and big ones later. Big glasses also start sooner and pour over more of the zoom.
+const POUR_START = 3, POUR_END = 0.6;
+const pourStart = cl => POUR_START * Math.max(1, Math.pow(cl.n / 300, 0.3));
+function pourOf(cl) { const px = cl.G * cam.s / Math.min(W, H), a = pourStart(cl); return Math.max(0, Math.min(1, Math.log(a / px) / Math.log(a / POUR_END))); }
+// One length of time for the big view changes: Per-model breakdown <-> one cup, and the pour into the All glass.
+const TRANSITION_S = 4.2;
+const giantFull = makeSprite(1024), giantEmpty = makeSprite(1024, { empty: true }), giantBlink = makeSprite(1024, { blink: true });
+// Each face blinks on its own timer: a ~0.14 s blink every 3-6 s, staggered by seed.
+function blinking(t, seed) { if (reduceMotion) return false; const f = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1, per = 3 + f * 3; return (t + seed * 9) % per < 0.14; }
+
+/* ---------- maths ---------- */
+function water(m) {
+  const wh = (m.in * WH.in + m.out * WH.out + m.read * WH.read + m.write * WH.write) / 1000 * OVERHEAD;
+  return { wh, ml: wh * RATES[rate] };
+}
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+let buildId = 0, clusters = [], perCup = 1, totals = { cups: 0, ml: 0, wh: 0 }, bbox = { x0: 0, y0: 0, x1: 1, y1: 1 };
+
+function build() {
+  const rows = models.map(m => ({ ...m, ...water(m) }));
+  totals.ml = rows.reduce((a, r) => a + r.ml, 0);
+  totals.wh = rows.reduce((a, r) => a + r.wh, 0);
+  totals.cups = totals.ml / CUP_ML;
+  perCup = 1;
+  if (totals.cups > MAX_DRAWN) { const raw = totals.cups / MAX_DRAWN, p = Math.pow(10, Math.floor(Math.log10(raw))); perCup = [1, 2, 5, 10].map(k => k * p).find(v => v >= raw); }
+  clusters = rows.map((r, idx) => {
+    const cups = r.ml / CUP_ML;
+    const n = cups > 0 ? Math.max(1, Math.round(cups / perCup)) : 0;
+    const xs = new Float32Array(n), ys = new Float32Array(n), rot = new Float32Array(n), ph = new Float32Array(n);
+    const rand = rng(idx * 7919 + 17);
+    const gl = n ? fillGlass(n, CUP_AREA) : { G: 2, pts: [] };
+    for (let i = 0; i < n; i++) {
+      const pt = gl.pts[i] || [0, 0];
+      xs[i] = pt[0] + (i ? (rand() - 0.5) * 0.16 : 0);
+      ys[i] = pt[1] + (i ? (rand() - 0.5) * 0.16 : 0);
+      rot[i] = i ? (rand() - 0.5) * 0.8 : 0;
+      ph[i] = rand() * Math.PI * 2;
+    }
+    const G = gl.G, R = 0.47 * G + 0.6;
+    const pd = new Float32Array(n), yTop = (GL.water - 0.525) * G, yBot = (GL.bot - 0.525) * G;
+    for (let i = 0; i < n; i++) pd[i] = Math.min(1, Math.max(0, (yBot - ys[i]) / (yBot - yTop))) * 0.88 + rand() * 0.12; // bottom rows pour first
+    // footprint includes the name label above and the burger/roll equation below
+    return { name: r.name, cups, ml: r.ml, n, xs, ys, rot, ph, pd, R, G, hw: R * 1.5 + 0.6, up: R * 1.62 + 0.6, dn: R * 2.75 + 0.6, x: 0, y: 0 };
+  }).filter(c => c.n > 0).sort((a, b) => b.n - a.n);
+  const placed = [];
+  const hits = (a, x, y) => placed.some(p => x - a.hw < p.x + p.hw && x + a.hw > p.x - p.hw && y - a.up < p.y + p.dn && y + a.dn > p.y - p.up);
+  clusters.forEach((cl, k) => {
+    if (k === 0) { placed.push(cl); return; }
+    let d = Math.max(placed[0].hw, placed[0].up) + Math.max(cl.hw, cl.up), a0 = k * 2.2, done = false;
+    while (!done) {
+      for (let s = 0; s < 72 && !done; s++) {
+        const a = a0 + s * (Math.PI * 2 / 72);
+        const x = d * Math.cos(a) * 1.15, y = d * Math.sin(a) * 0.85;
+        if (!hits(cl, x, y)) { cl.x = x; cl.y = y; done = true; }
+      }
+      d += Math.max(0.8, cl.R * 0.25);
+    }
+    placed.push(cl);
+  });
+  bbox = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  clusters.forEach(c => { bbox.x0 = Math.min(bbox.x0, c.x - c.hw); bbox.y0 = Math.min(bbox.y0, c.y - c.up); bbox.x1 = Math.max(bbox.x1, c.x + c.hw); bbox.y1 = Math.max(bbox.y1, c.y + c.dn); });
+  buildId++; buildMorph(); uploadGL();
+  renderHud();
+}
+
+/* ---------- morph: zoomed far out, the storm pours into one giant glass ---------- */
+let mp = null;
+const GL = { top: 0.12, bot: 0.93, water: 0.36, tw: 0.35, bw: 0.23 }; // glass in sprite space (half-widths)
+function glassHalfW(y) { return GL.tw - (y - GL.top) / (GL.bot - GL.top) * (GL.tw - GL.bw); }
+const CUP_AREA = Math.PI * SPACING * SPACING;
+const WATER_AREA = (() => { let a = 0; for (let y = GL.water; y < GL.bot - 0.025; y += 0.001) a += 2 * (glassHalfW(y) - 0.03) * 0.001; return a; })();
+// Points filling the water of a glass, bottom row first. Coordinates are relative to the glass origin (sprite point 0.5, 0.525) in world units.
+// The glass outline exactly as glassPath draws it (sprite units), as a convex polygon with inward edge normals.
+const GLASS_POLY = (() => {
+  const P = [[0.15, 0.12], [0.27, 0.88]], q = (a, c, b) => { for (let i = 1; i <= 12; i++) { const t = i / 12, u = 1 - t; P.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]); } };
+  q([0.27, 0.88], [0.28, 0.93], [0.32, 0.93]); P.push([0.68, 0.93]); q([0.68, 0.93], [0.72, 0.93], [0.73, 0.88]); P.push([0.85, 0.12]);
+  const edges = [];
+  for (let i = 0; i < P.length; i++) {
+    const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % P.length], len = Math.hypot(x2 - x1, y2 - y1); if (len < 1e-9) continue;
+    let nx = -(y2 - y1) / len, ny = (x2 - x1) / len;
+    if ((0.5 - x1) * nx + (0.6 - y1) * ny < 0) { nx = -nx; ny = -ny; } // point inward
+    edges.push([x1, y1, nx, ny]);
+  }
+  return edges;
+})();
+// distance (sprite units) from a point to the glass wall; negative = outside
+function wallDist(u, v) { let d = Infinity; for (const [x, y, nx, ny] of GLASS_POLY) { const e = (u - x) * nx + (v - y) * ny; if (e < d) d = e; } return d; }
+// Points filling the water of a glass, bottom row first. Coordinates are relative to the glass origin (sprite point 0.5, 0.525) in world units.
+function fillGlass(count, A) {
+  const G = Math.sqrt(count * A / WATER_AREA) * 1.06 + (count < 30 ? 1.4 : 0);
+  let step = Math.sqrt(A), pts = [];
+  for (let tries = 0; tries < 80; tries++) {
+    pts = []; let row = 0;
+    const margin = Math.max(0.62, step * 0.6) / G; // room for a tilted cup plus jitter, in sprite units
+    for (let y = GL.bot * G - Math.max(0.5, step * 0.5); y > GL.water * G; y -= step, row++) {
+      for (let x = -0.36 * G + step * (row % 2 ? 0.5 : 0); x < 0.36 * G; x += step) {
+        if (wallDist(0.5 + x / G, y / G) >= margin) pts.push([x, y - 0.525 * G]);
+      }
+    }
+    if (pts.length >= count) break; step *= 0.98;
+  }
+  pts.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  if (pts.length > count) pts.length = count;
+  const my = ((GL.water + GL.bot) / 2 - 0.525) * G; let best = 0, bd = Infinity;
+  pts.forEach((pt, i) => { const dd = pt[0] * pt[0] + (pt[1] - my) * (pt[1] - my); if (dd < bd) { bd = dd; best = i; } });
+  if (pts.length) [pts[0], pts[best]] = [pts[best], pts[0]];
+  return { G, pts };
+}
+function buildMorph() {
+  let N = 0; clusters.forEach(c => N += c.n);
+  if (!N) { mp = null; return; }
+  const stride = Math.max(1, Math.ceil(N / 40000)), M = Math.ceil(N / stride);
+  const sx = new Float32Array(M), sy = new Float32Array(M); let j = 0, gi = 0;
+  clusters.forEach(c => { for (let i = 0; i < c.n; i++, gi++) if (gi % stride === 0 && j < M) { sx[j] = c.x + c.xs[i]; sy[j] = c.y + c.ys[i]; j++; } });
+  const count = j;
+  const { G, pts } = fillGlass(count, CUP_AREA * stride);
+  const cx = (bbox.x0 + bbox.x1) / 2, cy = (bbox.y0 + bbox.y1) / 2;
+  const ox = cx - 0.5 * G, oy = cy - 0.525 * G;
+  const tgt = pts.map(pt => [cx + pt[0], cy + pt[1]]).sort((a, b) => a[1] - b[1]);
+  while (tgt.length < count) tgt.push([cx, cy]);
+  const order = Array.from({ length: count }, (_, i) => i).sort((a, b) => sy[a] - sy[b]);
+  const band = Math.ceil(count / 50);
+  const tx = new Float32Array(count), ty = new Float32Array(count), d = new Float32Array(count);
+  const rand = rng(99), top = oy + GL.water * G, h = (GL.bot - GL.water) * G;
+  for (let b0 = 0; b0 < count; b0 += band) {
+    const sc = order.slice(b0, b0 + band).sort((a, b) => sx[a] - sx[b]);
+    const tc = tgt.slice(b0, b0 + band).sort((a, b) => a[0] - b[0]);
+    sc.forEach((si, k) => { tx[si] = tc[k][0]; ty[si] = tc[k][1]; d[si] = Math.min(1, Math.max(0, 1 - (ty[si] - top) / h)) * 0.75 + rand() * 0.25; });
+  }
+  mp = { n: count, N, sx, sy, tx, ty, d, size: Math.sqrt(stride), G, ox, oy, cx, gcy: cy + 0.19 * G };
+}
+const morphStart = () => fitScale() * 0.92;
+const morphEnd = () => morphStart() * 0.5;
+let allLock = false, lockMax = 0; // set by "All": once the glass has filled, zooming back in keeps it
+function morphAmount() {
+  if (!mp) return 0;
+  const s0 = morphStart(), s1 = morphEnd();
+  let m = Math.max(0, Math.min(1, Math.log(s0 / cam.s) / Math.log(s0 / s1)));
+  if (allLock) m = Math.max(m, lockMax);
+  return m;
+}
+const smooth = (a, b, x) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+/* ---------- camera ---------- */
+const cv = $('sky'), ctx = cv.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+const cam = { x: 0, y: 0, s: 300 };
+let anim = null;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  for (const c of [cv, back, glc]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  lastKey = '';
+}
+const heroScale = () => Math.min(W, H) * 0.5;
+const maxScale = () => Math.min(W, H) * 0.95;
+const fitScale = () => Math.min(W * 0.86 / (bbox.x1 - bbox.x0), (H * 0.62) / (bbox.y1 - bbox.y0));
+const minScale = () => morphEnd() * 0.12;
+const clampS = s => Math.max(minScale(), Math.min(maxScale(), s));
+function zoomAt(px, py, f) {
+  const wx = (px - W / 2) / cam.s + cam.x, wy = (py - H / 2) / cam.s + cam.y;
+  cam.s = clampS(cam.s * f);
+  cam.x = wx - (px - W / 2) / cam.s; cam.y = wy - (py - H / 2) / cam.s;
+}
+// speed: exponential ease toward the target; dur (seconds) instead: a fixed-length eased move
+function flyTo(x, y, s, speed = 2.6, keepLock = false, dur = 0) {
+  if (!keepLock) { allLock = false; lockMax = 0; }
+  wz = null; anim = { x, y, s: clampS(s), speed, dur, t0: performance.now(), x0: cam.x, y0: cam.y, s0: cam.s };
+}
+function stormView() { const s = fitScale(); flyTo((bbox.x0 + bbox.x1) / 2, (bbox.y0 + bbox.y1) / 2 + 30 / s, s, 0, false, TRANSITION_S); }
+function oneCup(speed = 2.2) { const c = clusters[0]; if (c) flyTo(c.x + c.xs[0], c.y + c.ys[0], heroScale(), speed); }
+
+/* ---------- input ---------- */
+// While glasses on screen are mid-pour, slow the wheel so one tick pours roughly 250 drawn cups at most, not hundreds more.
+function wheelGain() {
+  let rate = 0; // drawn cups poured per unit of log-zoom
+  for (const cl of clusters) if (cl.pour > 0 && cl.pour < 1 && onScreenRect(glassRect(cl))) rate += cl.n / Math.log(pourStart(cl) / POUR_END);
+  return Math.max(0.35, Math.min(1, 250 / (0.12 * (rate || 1))));
+}
+let wz = null; // smoothed wheel zoom: the wheel sets a goal, frames ease toward it around the cursor
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); anim = null;
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1;
+  const f = Math.exp(-Math.max(-240, Math.min(240, e.deltaY * unit)) * (e.ctrlKey ? 0.008 : 0.0012) * wheelGain());
+  wz = { s: clampS((wz ? wz.s : cam.s) * f), x: e.clientX, y: e.clientY };
+}, { passive: false });
+const pts = new Map();
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); anim = null; wz = null; });
+cv.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  const prev = pts.get(e.pointerId);
+  if (pts.size === 1) { cam.x -= (e.clientX - prev.x) / cam.s; cam.y -= (e.clientY - prev.y) / cam.s; }
+  else if (pts.size === 2) {
+    const other = [...pts.entries()].find(([id]) => id !== e.pointerId)[1];
+    const d0 = Math.hypot(prev.x - other.x, prev.y - other.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+    const mx0 = (prev.x + other.x) / 2, my0 = (prev.y + other.y) / 2, mx1 = (e.clientX + other.x) / 2, my1 = (e.clientY + other.y) / 2;
+    if (d0 > 0) zoomAt(mx1, my1, d1 / d0);
+    cam.x -= (mx1 - mx0) / cam.s; cam.y -= (my1 - my0) / cam.s;
+  }
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => cv.addEventListener(t, e => pts.delete(e.pointerId)));
+$('zin').onclick = () => flyTo(cam.x, cam.y, cam.s * 2.2, 4, true);
+$('zout').onclick = () => flyTo(cam.x, cam.y, cam.s / 2.2, 4, true);
+$('storm').onclick = () => stormView();
+$('one').onclick = () => oneCup();
+// "All": one big glass that fills most of the screen, with its equations beside it (or below on tall screens)
+// Fit the All layout into the space between the top controls and the model chips.
+function allBox() {
+  const top = document.querySelector('.hud').getBoundingClientRect().bottom + 8;
+  const bottom = Math.min(H, $('legend').getBoundingClientRect().top) - 44;
+  return { top, bottom, avail: Math.max(160, bottom - top), side: ground && W >= H * 1.15 };
+}
+function allSize() { const b = allBox(); if (!ground) return Math.min(b.avail / 1.1, (W - 40) / 0.8); return b.side ? Math.min(b.avail / 1.1, (W - 60) / 1.62) : Math.min(b.avail / 1.95, (W - 32) / 0.9); }
+function allView(s) {
+  const b = allBox(), gs = mp.G * s, yc = (b.top + b.bottom) / 2;
+  const originY = b.side ? yc + 0.13 * gs : yc - 0.26 * gs; // screen y of the glass origin
+  return { x: b.side ? mp.cx + 0.44 * mp.G : mp.cx, y: mp.oy + 0.525 * mp.G - (originY - H / 2) / s };
+}
+function giantRect() {
+  const b = allBox(), gs = allSize(), yc = (b.top + b.bottom) / 2;
+  const originY = b.side || !ground ? yc + 0.13 * gs : yc - 0.26 * gs;
+  const cx = b.side ? W / 2 - 0.44 * gs : W / 2;
+  // Big and screen-filling at the end of the pour; zooming out further shrinks it and dragging pans it, like any object.
+  const s1 = morphEnd(), se = Math.min(cam.s, s1), k = se / s1;
+  const ox = (bbox.x0 + bbox.x1) / 2, oy = (bbox.y0 + bbox.y1) / 2;
+  return { gx: W / 2 + (cx - 0.5 * gs - W / 2) * k + (ox - cam.x) * se, gy: H / 2 + (originY - 0.525 * gs - H / 2) * k + (oy - cam.y) * se, gs: gs * k };
+}
+const giantView = () => {
+  if (!mp) return;
+  flyTo((bbox.x0 + bbox.x1) / 2, (bbox.y0 + bbox.y1) / 2, morphEnd() * 0.95, 1.4); allLock = true; lockMax = 0;
+};
+$('giant').onclick = giantView;
+$('ground').addEventListener('change', e => {
+  ground = e.target.checked;
+  try { localStorage.setItem('cupstorm.ground', ground ? '1' : '0'); } catch (er) {}
+  renderHud(); lastKey = '';
+});
+addEventListener('keydown', e => {
+  if (!$('sheetWrap').hidden || e.target.closest('textarea,input,select')) { if (e.key === 'Escape') closeSheet(); return; }
+  if (e.key === '+' || e.key === '=') flyTo(cam.x, cam.y, cam.s * 2.2, 4, true);
+  else if (e.key === '-' || e.key === '_') flyTo(cam.x, cam.y, cam.s / 2.2, 4, true);
+  else if (e.key === '0') stormView();
+  else if (e.key === '1') oneCup();
+  else if (e.key === 'g') giantView();
+});
+addEventListener('resize', () => { resize(); cam.s = clampS(cam.s); });
+
+/* ---------- render: three stacked layers ----------
+   back (2D): sky, glass bodies and the rising water; redrawn only when the camera moves.
+   glc (WebGL): every cup as one instanced quad; the GPU tips, empties, fades and pours them.
+   front (2D, #sky): glass rims, labels, equations, rain; cheap, redrawn every frame. */
+const back = $('back'), sctx = back.getContext('2d');
+const glc = $('glc');
+let lastKey = '', sceneInfo = { onScreen: 0 }, lastHint = '';
+const geo = new Float32Array(256); // per model glass: centre x, rim y, rim half-width, water surface y
+
+const POUR_COMMON = `
+attribute vec2 aCorner; attribute vec2 aPos; attribute float aRot; attribute float aPhase; attribute float aPd; attribute float aCl;
+uniform vec4 uGeo[64]; // per model glass: x = centre x, y = rim y, z = rim half-width, w = water surface y (world units)
+uniform vec4 uPours[16]; // per model glass pour amount, four to a vec4
+uniform vec2 uCam; uniform vec2 uView; uniform float uS; uniform float uTime; uniform float uBob; uniform float uBlink;
+float h1(float v) { return fract(sin(v * 12.9898) * 43758.5453); }
+float pourOf(float cl) { vec4 v = uPours[int(cl / 4.0)]; float r = mod(cl, 4.0); return r < 0.5 ? v.x : r < 1.5 ? v.y : r < 2.5 ? v.z : v.w; }
+vec2 toClip(vec2 world) { vec2 px = (world - uCam) * uS + uView * 0.5; return vec2(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0); }
+`;
+// Fragment side: world positions reach hundreds of units, so ask for highp where the GPU has it.
+const FS_HEAD = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform float uWaveT;
+varying vec2 vWorld; varying vec4 vGeo;
+// world y of the rippling water surface at world x (geo as in uGeo); ripples shrink in shallow water so they never
+// rise off an empty bottom
+float waterSurf(float x, vec4 geo) {
+  float G = geo.z / 0.35, u = (x - geo.x) / G, depth = (geo.y + 0.81 * G - geo.w) / G;
+  return geo.w + (sin(u * 15.708 + uWaveT * 1.7) * 0.008 + sin(u * 37.7 - uWaveT * 2.9) * 0.003) * G * clamp(depth / 0.06, 0.0, 1.0);
+}
+// half-width of the glass interior at world y, following glassPath with its rounded bottom; -1 outside
+float glassHalf(float y, vec4 geo) {
+  float G = geo.z / 0.35, v = 0.12 + (y - geo.y) / G;
+  if (v < 0.12 || v > 0.93) return -1.0;
+  return (v <= 0.88 ? 0.35 - (v - 0.12) / 0.76 * 0.12 : 0.18 + sqrt(max(0.0, 0.0025 - (v - 0.88) * (v - 0.88)))) * G;
+}
+// true where the glass's water covers this fragment: cups and streams behind it vanish, as through real water
+bool underWater() { return vWorld.y > waterSurf(vWorld.x, vGeo) && abs(vWorld.x - vGeo.x) < glassHalf(vWorld.y, vGeo); }
+`;
+const CUP_VS = POUR_COMMON + `
+varying vec2 vUV; varying float vAlpha; varying vec2 vWorld; varying vec4 vGeo;
+void main() {
+  vec4 geo = uGeo[int(aCl)];
+  float k = clamp(pourOf(aCl) * 1.6 - aPd * 0.6, 0.0, 1.0);
+  vec2 pp = aPos + vec2(0.0, -0.35); // pour right where the cup is, onto the water just below
+  float side = h1(aPhase + 1.7) < 0.5 ? 1.0 : -1.0;
+  float tA = smoothstep(0.0, 0.4, k), tB = smoothstep(0.35, 0.55, k), tC = smoothstep(0.86, 1.0, k);
+  vec2 pos = mix(aPos, pp, tA) - vec2(0.0, sin(tA * 3.14159265) * min(8.0, length(pp - aPos) * 0.25) + tC * 1.5);
+  float ang = mix(aRot, side * 2.1, tB) + uBob * sin(uTime * 1.6 + aPhase) * 0.07;
+  vec2 c = aCorner * (1.0 - 0.25 * tC);
+  float cs = cos(ang), sn = sin(ang);
+  vec2 world = pos + vec2(c.x * cs - c.y * sn, c.x * sn + c.y * cs) + vec2(0.0, uBob * sin(uTime * 2.1 + aPhase) * 0.025);
+  vAlpha = 1.0 - tC; vWorld = world; vGeo = geo;
+  bool sunk = aPos.y - 0.75 > geo.w + 0.012 * geo.z / 0.35; // wholly under the water, ripples included: skip
+  float per = 3.0 + h1(aPhase + 5.3) * 3.0, blink = k < 0.72 ? uBlink * step(mod(uTime + aPhase * 9.0, per), 0.14) : 0.0; // each instance blinks on its own timer
+  vUV = vec2((aCorner.x + 0.5) * 0.5 + (k < 0.72 ? 0.0 : 0.5), (aCorner.y + 0.5) * 0.5 + blink * 0.5); // atlas: full | empty over blink
+  gl_Position = (k >= 1.0 || vAlpha <= 0.0 || sunk) ? vec4(2.0, 2.0, 2.0, 1.0) : vec4(toClip(world), 0.0, 1.0);
+}`;
+const STREAM_VS = POUR_COMMON + `
+uniform float uStreamA;
+varying float vA; varying float vX; varying vec2 vWorld; varying vec4 vGeo;
+void main() {
+  vec4 geo = uGeo[int(aCl)];
+  float k = clamp(pourOf(aCl) * 1.6 - aPd * 0.6, 0.0, 1.0);
+  float on = smoothstep(0.5, 0.56, k) * (1.0 - smoothstep(0.8, 0.86, k)) * (1.0 - clamp((aPos.y - 0.45 - geo.w) / 0.5, 0.0, 1.0));
+  vec2 pp = aPos + vec2(0.0, -0.35);
+  float side = h1(aPhase + 1.7) < 0.5 ? 1.0 : -1.0, ang = side * 2.1;
+  vec2 lipL = vec2(side * 0.36, -0.4);
+  vec2 lip = pp + vec2(lipL.x * cos(ang) - lipL.y * sin(ang), lipL.x * sin(ang) + lipL.y * cos(ang));
+  vec2 end = vec2(lip.x + side * 0.3, clamp(geo.w + 0.1, lip.y + 0.5, lip.y + 2.5));
+  float t = aCorner.y + 0.5;
+  vec2 pt = mix(lip, end, t) + vec2(side * 0.25 * sin(t * 3.14159265) * (1.0 - t), 0.0);
+  vec2 world = pt + vec2(aCorner.x * 0.14 * on * (1.0 - 0.35 * t), 0.0);
+  vA = on * uStreamA; vX = aCorner.x; vWorld = world; vGeo = geo;
+  gl_Position = on <= 0.0 ? vec4(2.0, 2.0, 2.0, 1.0) : vec4(toClip(world), 0.0, 1.0);
+}`;
+const glv = c => `vec3(${c.map(v => (v / 255).toFixed(3)).join(', ')})`;
+const STREAM_FS = FS_HEAD + `varying float vA; varying float vX;
+void main() { if (underWater()) discard; float core = 1.0 - abs(vX) * 2.0; vec3 c = mix(${glv(WATER.mid)}, ${glv(WATER.foam)}, smoothstep(0.55, 1.0, core) * 0.7); gl_FragColor = vec4(c, 1.0) * vA * 0.85 * smoothstep(0.0, 0.25, core); }`;
+const CUP_FS = FS_HEAD + `uniform sampler2D uTex; varying vec2 vUV; varying float vAlpha;
+void main() { if (underWater()) discard; vec4 c = texture2D(uTex, vUV) * vAlpha; if (c.a < 0.004) discard; gl_FragColor = c; }`;
+// The water in each model glass: one instanced quad per glass, filled in the fragment shader. Translucent, so the
+// graph paper shows through; drawn after the cups, which are already cut away wherever this water covers them.
+const WATER_VS = `
+attribute vec2 aCorner; attribute float aCl;
+uniform vec4 uGeo[64]; uniform vec2 uCam; uniform vec2 uView; uniform float uS;
+varying vec2 vWorld; varying vec4 vGeo;
+void main() {
+  vec4 geo = uGeo[int(aCl)]; float G = geo.z / 0.35;
+  vec2 world = vec2(geo.x + aCorner.x * 0.74 * G, geo.y + (aCorner.y + 0.5) * 0.82 * G);
+  vWorld = world; vGeo = geo;
+  vec2 px = (world - uCam) * uS + uView * 0.5;
+  gl_Position = (geo.w > 1e8 || G <= 0.0) ? vec4(2.0, 2.0, 2.0, 1.0) : vec4(px.x / uView.x * 2.0 - 1.0, 1.0 - px.y / uView.y * 2.0, 0.0, 1.0);
+}`;
+const WATER_FS = FS_HEAD + `uniform float uPx;
+void main() {
+  float G = vGeo.z / 0.35, below = vWorld.y - waterSurf(vWorld.x, vGeo);
+  float cover = clamp((glassHalf(vWorld.y, vGeo) - abs(vWorld.x - vGeo.x)) / uPx + 0.5, 0.0, 1.0) * clamp(below / uPx + 0.5, 0.0, 1.0);
+  if (cover <= 0.0) discard;
+  float t = clamp((0.12 + (vWorld.y - vGeo.y) / G - 0.33) / 0.6, 0.0, 1.0); // same gradient span as glassWater
+  vec3 c = t < 0.55 ? mix(${glv(WATER.top)}, ${glv(WATER.mid)}, t / 0.55) : mix(${glv(WATER.mid)}, ${glv(WATER.bot)}, (t - 0.55) / 0.45);
+  float foam = 1.0 - smoothstep(0.04 * G - uPx, 0.04 * G + uPx, below);
+  float a = mix(${WATER.a.toFixed(2)}, ${WATER.foamA.toFixed(2)}, foam) * cover;
+  gl_FragColor = vec4(mix(c, ${glv(WATER.foam)}, foam) * a, a);
+}`;
+// Native instancing on WebGL2; WebGL1 falls back to the ANGLE extension behind the same two calls.
+const glOpts = { premultipliedAlpha: true, alpha: true, antialias: true };
+const gl = glc.getContext('webgl2', glOpts) || glc.getContext('webgl', glOpts);
+const inst = !gl ? null : typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext
+  ? { vertexAttribDivisorANGLE: (l, d) => gl.vertexAttribDivisor(l, d), drawArraysInstancedANGLE: (m, f, c, n) => gl.drawArraysInstanced(m, f, c, n) }
+  : gl.getExtension('ANGLE_instanced_arrays');
+function initGL() {
+  if (!gl || !inst) return null;
+  try {
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; };
+    const loc = (p, names) => Object.fromEntries(names.map(n => [n, n[0] === 'a' ? gl.getAttribLocation(p, n) : gl.getUniformLocation(p, n)]));
+    const cupP = prog(CUP_VS, CUP_FS), strP = prog(STREAM_VS, STREAM_FS), watP = prog(WATER_VS, WATER_FS);
+    const watBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, watBuf); // one instance per model glass: its index into uGeo
+    gl.bufferData(gl.ARRAY_BUFFER, Float32Array.from({ length: 64 }, (_, i) => i), gl.STATIC_DRAW);
+    const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5]), gl.STATIC_DRAW);
+    const atlas = document.createElement('canvas'); atlas.width = 2048; atlas.height = 2048;
+    const a = atlas.getContext('2d'); a.drawImage(giantFull, 0, 0); a.drawImage(giantEmpty, 1024, 0); a.drawImage(giantBlink, 0, 1024);
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return {
+      cupP, strP, watP, quad, tex, watBuf, cupBuf: gl.createBuffer(), cupN: 0,
+      cu: loc(cupP, ['aCorner', 'aPos', 'aRot', 'aPhase', 'aPd', 'aCl', 'uGeo', 'uCam', 'uView', 'uS', 'uPours', 'uTime', 'uBob', 'uBlink', 'uTex', 'uWaveT']),
+      su: loc(strP, ['aCorner', 'aPos', 'aRot', 'aPhase', 'aPd', 'aCl', 'uGeo', 'uCam', 'uView', 'uS', 'uPours', 'uTime', 'uBob', 'uStreamA', 'uWaveT']),
+      wu: loc(watP, ['aCorner', 'aCl', 'uGeo', 'uCam', 'uView', 'uS', 'uWaveT', 'uPx']),
+    };
+  } catch (e) { console.warn('WebGL unavailable, falling back to simple drawing', e); return null; }
+}
+const GPU = initGL();
+function uploadGL() {
+  if (!GPU) return;
+  let N = 0; clusters.forEach(c => N += c.n);
+  const d = new Float32Array(N * 6); let j = 0;
+  clusters.forEach((c, ci) => { for (let i = c.n - 1; i >= 0; i--) { d[j++] = c.x + c.xs[i]; d[j++] = c.y + c.ys[i]; d[j++] = c.rot[i]; d[j++] = c.ph[i]; d[j++] = c.pd[i]; d[j++] = Math.min(ci, 63); } });
+  gl.bindBuffer(gl.ARRAY_BUFFER, GPU.cupBuf); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); GPU.cupN = N;
+
+}
+function bindAttribs(locs, buf, floats = 5) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  const F = 4, stride = floats * F, used = [];
+  for (const [l, n, o] of locs) { if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, stride, o * F); inst.vertexAttribDivisorANGLE(l, 1); used.push(l); }
+  return used;
+}
+function bindCorner(l) { gl.bindBuffer(gl.ARRAY_BUFFER, GPU.quad); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); inst.vertexAttribDivisorANGLE(l, 0); }
+function unbind(used, corner) { used.forEach(l => { inst.vertexAttribDivisorANGLE(l, 0); gl.disableVertexAttribArray(l); }); gl.disableVertexAttribArray(corner); }
+const pours = new Float32Array(64);
+function drawGL(t, m, bob) {
+  if (!GPU) return;
+  gl.viewport(0, 0, glc.width, glc.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  const waveT = reduceMotion ? 0 : t % 1000;
+  const n = Math.min(64, clusters.length); let anyPour = false, anyCups = false;
+  pours.fill(0); for (let i = 0; i < n; i++) { const p = clusters[i].pour || 0; pours[i] = p; anyPour = anyPour || p > 0; anyCups = anyCups || p < 1; }
+  if (m <= 0 && anyCups && GPU.cupN) {
+    const passes = anyPour ? [[GPU.strP, GPU.su], [GPU.cupP, GPU.cu]] : [[GPU.cupP, GPU.cu]];
+    for (const [prg, u] of passes) {
+      gl.useProgram(prg); bindCorner(u.aCorner);
+      const used = bindAttribs([[u.aPos, 2, 0], [u.aRot, 1, 2], [u.aPhase, 1, 3], [u.aPd, 1, 4], [u.aCl, 1, 5]], GPU.cupBuf, 6);
+      gl.uniform4fv(u.uGeo, geo); gl.uniform2f(u.uCam, cam.x, cam.y); gl.uniform2f(u.uView, W, H); gl.uniform1f(u.uS, cam.s);
+      gl.uniform4fv(u.uPours, pours); gl.uniform1f(u.uTime, t % 1000); gl.uniform1f(u.uBob, bob ? 1 : 0);
+      if (u.uBlink) gl.uniform1f(u.uBlink, reduceMotion ? 0 : 1);
+      if (u.uStreamA) gl.uniform1f(u.uStreamA, smooth(5, 10, cam.s));
+      if (u.uTex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GPU.tex); gl.uniform1i(u.uTex, 0); }
+      gl.uniform1f(u.uWaveT, waveT);
+      inst.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, GPU.cupN);
+      unbind(used, u.aCorner);
+    }
+  }
+  if (m <= 0 && anyPour) { // the rising water, over the cups; stays once the glass is full
+    const u = GPU.wu;
+    gl.useProgram(GPU.watP); bindCorner(u.aCorner);
+    const used = bindAttribs([[u.aCl, 1, 0]], GPU.watBuf, 1);
+    gl.uniform4fv(u.uGeo, geo); gl.uniform2f(u.uCam, cam.x, cam.y); gl.uniform2f(u.uView, W, H); gl.uniform1f(u.uS, cam.s);
+    gl.uniform1f(u.uWaveT, waveT); gl.uniform1f(u.uPx, 1 / cam.s);
+    inst.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, n);
+    unbind(used, u.aCorner);
+  }
+}
+
+function glassRect(cl) { const gs = cl.G * cam.s; return { x: (cl.x - cam.x) * cam.s + W / 2 - 0.5 * gs, y: (cl.y - cam.y) * cam.s + H / 2 - 0.525 * gs, s: gs }; }
+const onScreenRect = r => r.x < W && r.x + r.s > 0 && r.y < H && r.y + r.s > 0;
+// the whole glass (rim to base, wall to wall) is inside the viewport
+function glassInView(cl) { const r = glassRect(cl); return r.x + 0.13 * r.s >= 0 && r.x + 0.87 * r.s <= W && r.y + 0.08 * r.s >= 0 && r.y + 0.96 * r.s <= H; }
+// cute graph paper: a small pattern tile, repeated
+let paper = null, paperDpr = 0;
+function paperPattern() {
+  if (paper && paperDpr === dpr) return paper;
+  const t = document.createElement('canvas'), n = 120; t.width = t.height = Math.round(n * dpr);
+  const g = t.getContext('2d'); g.scale(dpr, dpr);
+  g.fillStyle = '#FCFEFF'; g.fillRect(0, 0, n, n);
+  g.strokeStyle = 'rgba(90,160,255,0.16)'; g.lineWidth = 1;
+  for (let i = 0; i <= n; i += 20) { g.beginPath(); g.moveTo(i + 0.5, 0); g.lineTo(i + 0.5, n); g.moveTo(0, i + 0.5); g.lineTo(n, i + 0.5); g.stroke(); }
+  g.strokeStyle = 'rgba(90,160,255,0.34)'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(0.75, 0); g.lineTo(0.75, n); g.moveTo(0, 0.75); g.lineTo(n, 0.75); g.stroke();
+  paper = sctx.createPattern(t, 'repeat'); paperDpr = dpr;
+  if (paper.setTransform) paper.setTransform(new DOMMatrix().scale(1 / dpr, 1 / dpr));
+  return paper;
+}
+// Each model glass flies above the All glass, tips over and pours its water in.
+function pourPlan(m, gx, gy, gsG) {
+  const n = clusters.length, items = []; let poured = 0;
+  clusters.forEach((cl, i) => {
+    const d = n > 1 ? i / (n - 1) * 0.35 : 0, k = Math.max(0, Math.min(1, (m - d) / 0.6));
+    const r0 = glassRect(cl), tsz = Math.min(r0.s, 0.3 * gsG);
+    const lane = n > 1 ? (i % 2 ? 1 : -1) * (0.06 + 0.17 * Math.floor(i / 2) / Math.max(1, Math.floor((n - 1) / 2))) : 0;
+    const side = lane <= 0 ? 1 : -1;
+    const px = gx + gsG * (0.5 + lane), py = gy + gsG * 0.12 - tsz * 0.62;
+    const tA = smooth(0, 0.35, k), tB = smooth(0.3, 0.5, k), tP = smooth(0.45, 0.85, k), tC = smooth(0.86, 1, k);
+    const sz = r0.s + (tsz - r0.s) * tA, cx0 = r0.x + r0.s / 2, cy0 = r0.y + r0.s / 2;
+    items.push({ k, sz, side, tB, tP, frac: 1 - tP, alpha: 1 - tC, pouring: k > 0.45 && k < 0.88,
+      cx: cx0 + (px - cx0) * tA, cy: cy0 + (py - cy0) * tA - Math.sin(tA * Math.PI) * gsG * 0.12 - tC * sz * 0.3, ang: side * 2.0 * tB });
+    poured += cl.ml * tP;
+  });
+  const frac = totals.ml ? poured / totals.ml : 0;
+  return { items, frac, level: gy + levelV(frac) * gsG };
+}
+function drawPouringGlass(g, p, level) {
+  if (p.alpha <= 0.01) return;
+  g.save(); g.globalAlpha = p.alpha; g.translate(p.cx, p.cy); g.rotate(p.ang);
+  const x = -p.sz / 2, y = -p.sz / 2;
+  glassBody(g, x, y, p.sz); glassWater(g, x, y, p.sz, p.frac); glassOutline(g, x, y, p.sz);
+  if (p.tB < 1) { g.globalAlpha = p.alpha * (1 - p.tB); vec(g, drawCup, x, y, p.sz, { overlay: true }); }
+  g.restore();
+  if (!p.pouring) return;
+  const on = Math.sin(Math.min(1, Math.max(0, (p.k - 0.45) / 0.43)) * Math.PI);
+  const ox = p.side * 0.35 * p.sz, oy = -0.38 * p.sz, c = Math.cos(p.ang), s = Math.sin(p.ang);
+  const lx = p.cx + ox * c - oy * s, ly = p.cy + ox * s + oy * c, ex = lx + p.side * p.sz * 0.1, ey = Math.max(level + 4, ly + 10);
+  g.save(); g.globalAlpha = p.alpha; g.lineCap = 'round';
+  const gr = g.createLinearGradient(lx, ly, ex, ey); gr.addColorStop(0, rgba(WATER.top, 0.85)); gr.addColorStop(1, rgba(WATER.mid, 0.85));
+  g.strokeStyle = gr; g.lineWidth = Math.max(2, p.sz * 0.09 * on);
+  g.beginPath(); g.moveTo(lx, ly); g.quadraticCurveTo(lx + p.side * p.sz * 0.16, ly + (ey - ly) * 0.15, ex, ey); g.stroke();
+  g.strokeStyle = 'rgba(190,235,255,0.8)'; g.lineWidth = Math.max(1, p.sz * 0.025 * on);
+  g.beginPath(); g.moveTo(lx, ly); g.quadraticCurveTo(lx + p.side * p.sz * 0.16, ly + (ey - ly) * 0.15, ex, ey); g.stroke();
+  g.restore();
+}
+function drawBack(m) {
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sctx.fillStyle = paperPattern(); sctx.fillRect(0, 0, W, H);
+  const s = cam.s;
+  if (m > 0 && mp) {
+    const { gx, gy, gs: gsG } = giantRect();
+    const plan = pourPlan(m, gx, gy, gsG);
+    sctx.globalAlpha = smooth(0, 0.12, m);
+    glassBody(sctx, gx, gy, gsG); glassWater(sctx, gx, gy, gsG, plan.frac); glassOutline(sctx, gx, gy, gsG);
+    sctx.globalAlpha = 1;
+    for (const p of plan.items) drawPouringGlass(sctx, p, plan.level);
+    return { onScreen: mp.N };
+  }
+  let onScreen = 0;
+  geo.fill(0);
+  clusters.forEach((cl, ci) => {
+    if (ci >= 64) return;
+    let poured = 0; const pd = cl.pd, p = cl.pour;
+    if (p > 0) for (let i = 0; i < cl.n; i++) poured += smooth(0.5, 0.85, p * 1.6 - pd[i] * 0.6);
+    cl.frac = p > 0 ? poured / cl.n : 0;
+    geo[ci * 4] = cl.x; geo[ci * 4 + 1] = cl.y + (0.12 - 0.525) * cl.G; geo[ci * 4 + 2] = 0.35 * cl.G;
+    geo[ci * 4 + 3] = cl.frac > 0 ? cl.y + (levelV(cl.frac) - 0.525) * cl.G : 1e9; // no water until a cup has poured some
+  });
+  for (const cl of clusters) {
+    const r = glassRect(cl); if (!onScreenRect(r)) continue;
+    const cx = r.x + 0.5 * r.s, cy = r.y + 0.525 * r.s, Rp = cl.R * s;
+    const ox = Math.max(0, Math.min(W, cx + Rp) - Math.max(0, cx - Rp)), oy = Math.max(0, Math.min(H, cy + Rp) - Math.max(0, cy - Rp));
+    onScreen += Math.min(cl.n, Math.round(cl.n * ox * oy / (WATER_AREA * r.s * r.s)));
+    if (!GPU) { vec(sctx, drawCup, r.x, r.y, r.s); continue; }
+    glassBody(sctx, r.x, r.y, r.s); // its water is drawn by WATER_FS
+  }
+  return { onScreen };
+}
+
+let last = performance.now(), hudTick = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  if (anim && anim.dur) {
+    const u = Math.min(1, (now - anim.t0) / 1000 / anim.dur), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    cam.s = Math.exp(Math.log(anim.s0) + (Math.log(anim.s) - Math.log(anim.s0)) * e);
+    const w = Math.abs(1 / anim.s - 1 / anim.s0) > 1e-9 ? (1 / cam.s - 1 / anim.s0) / (1 / anim.s - 1 / anim.s0) : e;
+    cam.x = anim.x0 + (anim.x - anim.x0) * w; cam.y = anim.y0 + (anim.y - anim.y0) * w;
+    if (u >= 1) anim = null;
+  } else if (anim) {
+    const k = 1 - Math.exp(-dt * anim.speed);
+    cam.x += (anim.x - cam.x) * k; cam.y += (anim.y - cam.y) * k;
+    cam.s = Math.exp(Math.log(cam.s) + (Math.log(anim.s) - Math.log(cam.s)) * k);
+    if (Math.abs(Math.log(cam.s / anim.s)) < 0.002 && Math.hypot(anim.x - cam.x, anim.y - cam.y) * cam.s < 0.5) anim = null;
+  }
+  if (wz) {
+    const k = 1 - Math.exp(-dt * 5.5);
+    zoomAt(wz.x, wz.y, Math.exp(Math.log(cam.s) + (Math.log(wz.s) - Math.log(cam.s)) * k) / cam.s);
+    if (Math.abs(Math.log(cam.s / wz.s)) < 0.0015) { zoomAt(wz.x, wz.y, wz.s / cam.s); wz = null; }
+  }
+  if (allLock && lockMax < 1) lockMax = Math.min(1, lockMax + dt / TRANSITION_S); // slow enough that each model glass visibly pours
+  const morph = morphAmount();
+  if (morph > 0 && morph < 1 && mp && !pts.size && !anim && !wz) { // only steer while the glasses are pouring
+    const tg = { x: (bbox.x0 + bbox.x1) / 2, y: (bbox.y0 + bbox.y1) / 2 }; // keep the model glasses centred while they fly over
+    if (Math.hypot(tg.x - cam.x, tg.y - cam.y) * cam.s > 0.5) {
+      const k = 1 - Math.exp(-dt * 4 * morph);
+      cam.x += (tg.x - cam.x) * k; cam.y += (tg.y - cam.y) * k;
+    }
+  }
+  const bob = !reduceMotion && cam.s > 48;
+  for (const cl of clusters) {
+    cl.pour = pourOf(cl);
+    const show = morph <= 0 && glassInView(cl); // a model's chip pops up only while its whole glass is in view
+    if (cl.chip && cl.chip.hidden === show) cl.chip.hidden = !show;
+  }
+  const key = cam.x + '|' + cam.y + '|' + cam.s + '|' + W + '|' + H + '|' + buildId + '|' + lockMax;
+  if (key !== lastKey) { sceneInfo = drawBack(morph); lastKey = key; }
+  drawGL(t, morph, bob);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // glass rims sit in front of the cups; the full cartoon glass fades in as the pour finishes
+  if (morph <= 0) for (const cl of clusters) {
+    const r = glassRect(cl); if (!onScreenRect(r)) continue;
+    const blink = blinking(t, cl.ph[0]);
+    if (!GPU) { if (blink) vec(ctx, drawCup, r.x, r.y, r.s, { blink }); continue; } // the back layer holds the open-eyed glass
+    const full = smooth(0.85, 1, cl.pour); // the cartoon glass's face and outline take over from the plain rim
+    if (full < 1) { ctx.globalAlpha = 1 - full; glassOutline(ctx, r.x, r.y, r.s); }
+    if (full > 0) { ctx.globalAlpha = full; vec(ctx, drawCup, r.x, r.y, r.s, { blink, overlay: true }); }
+    ctx.globalAlpha = 1;
+  }
+
+  // bubble labels + "=" equations
+  ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+  const fadeL = 1 - smooth(0, 0.3, morph); ctx.globalAlpha = fadeL;
+  for (const cl of (fadeL > 0.01 ? clusters : [])) {
+    const cx = (cl.x - cam.x) * cam.s + W / 2, cy = (cl.y - cam.y) * cam.s + H / 2, Rp = cl.R * cam.s;
+    const fs = Rp * 0.2; // world-sized, like the cups
+    if (fs < 2) continue;
+    const ly = cy - Rp - fs * 0.9;
+    if (ly > -fs * 2 && ly < H + fs) {
+      bubbleText(cl.name, cx, ly - fs * 0.75, fs);
+      bubbleText((cl.cups < 1 ? '<1' : fmt.format(Math.round(cl.cups))) + ' cups', cx, ly + fs * 0.15, fs * 0.62);
+    }
+    const ey = cy + Rp + fs * 1.2;
+    if (ground && ey + fs * 6 > -fs && ey < H + fs * 2) drawEquation(cl, cx, ey, fs, t);
+  }
+
+  ctx.globalAlpha = 1;
+  if (morph > 0.93 && mp) {
+    const a = smooth(0.93, 1, morph), { gx, gy, gs } = giantRect(), mx = gx + gs / 2;
+    const sq = reduceMotion ? 0 : Math.sin(t * 2.2) * 0.012;
+    ctx.globalAlpha = a;
+    ctx.save(); ctx.translate(gx - gs * sq / 2, gy + gs * sq); ctx.scale(1 + sq, 1 - sq); drawCup(ctx, gs, { blink: blinking(t, 0.37), overlay: true }); ctx.restore(); // face appears when the glass is full
+    const fs = gs * 0.1;
+    ctx.textAlign = 'center';
+    // same header style as each model's glass: name, then cup count
+    bubbleText('All models', mx, gy + gs * 0.06 - fs * 0.85, fs);
+    bubbleText(fmt.format(Math.round(totals.cups)) + ' cups', mx, gy + gs * 0.06 - fs * 0.05, fs * 0.62);
+    const fsr = gs * 0.11;
+    if (!ground) { /* no equivalents */ }
+    else if (W >= H * 1.15) drawEquation({ ml: totals.ml }, gx + gs * 0.9 + fsr * 3.9, gy + gs * 0.52 - fsr * 2.35, fsr, t);
+    else drawEquation({ ml: totals.ml }, mx, gy + gs * 0.95 + fsr * 1.2, fsr, t);
+    ctx.globalAlpha = 1;
+  }
+
+  const hint = Math.max(0, Math.min(1, (cam.s / heroScale() - 0.45) / 0.4)).toFixed(2);
+  if (hint !== lastHint) { $('hint').style.opacity = hint; lastHint = hint; }
+  if (now - hudTick > 150) {
+    hudTick = now;
+    // the big number counts the cups on screen (every cup once the All glass holds them)
+    let drawn = 0; for (const cl of clusters) drawn += cl.n;
+    const all = sceneInfo.onScreen >= drawn, real = Math.round(all ? totals.cups : sceneInfo.onScreen * perCup), txt = fmt.format(real); // all in view: the exact total, not the sum of rounded glasses
+    if ($('total').textContent !== txt) { $('total').textContent = txt; $('totalUnit').textContent = real === 1 ? 'cup' : 'cups'; }
+    renderSub(all ? totals.ml : real * CUP_ML);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Bubble text is stroked three times, which is slow; render each label once into a small bitmap and reuse it.
+const textCache = new Map(), measureCtx = document.createElement('canvas').getContext('2d');
+if (document.fonts) { document.fonts.ready.then(() => textCache.clear()); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', () => textCache.clear()); }
+function textImg(s, fs, fill, rim) {
+  const q = Math.min(64, Math.pow(2, Math.round(Math.log2(Math.max(4, fs)) * 10) / 10));
+  const key = s + '|' + q + '|' + fill + '|' + rim + '|' + dpr;
+  let e = textCache.get(key);
+  if (!e) {
+    if (textCache.size > 600) textCache.clear();
+    const font = `${q}px Chewy, "Baloo 2", sans-serif`;
+    measureCtx.font = font; const tw = measureCtx.measureText(s).width;
+    const pad = q * 0.3, by = q * 1.2, c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil((tw + pad * 2) * dpr)); c.height = Math.max(1, Math.ceil(q * 1.75 * dpr));
+    const g = c.getContext('2d'); g.scale(dpr, dpr); g.font = font; g.lineJoin = 'round';
+    g.lineWidth = q * 0.34; g.strokeStyle = '#12336B'; g.strokeText(s, pad, by + q * 0.08);
+    g.lineWidth = q * 0.26; g.strokeStyle = rim; g.strokeText(s, pad, by);
+    g.fillStyle = fill; g.fillText(s, pad, by);
+    e = { c, tw, q, pad, by }; textCache.set(key, e);
+  }
+  return e;
+}
+function bubbleText(s, x, y, fs, fill = '#FFFFFF', rim = '#0B47C9') {
+  if (fs > 60) {
+    ctx.font = `${fs}px Chewy, "Baloo 2", sans-serif`; ctx.lineJoin = 'round';
+    ctx.lineWidth = fs * 0.34; ctx.strokeStyle = '#12336B'; ctx.strokeText(s, x, y + fs * 0.08);
+    ctx.lineWidth = fs * 0.26; ctx.strokeStyle = rim; ctx.strokeText(s, x, y);
+    ctx.fillStyle = fill; ctx.fillText(s, x, y);
+    return;
+  }
+  const e = textImg(s, fs, fill, rim), k = fs / e.q;
+  const left = ctx.textAlign === 'left' ? x - e.pad * k : x - (e.tw / 2 + e.pad) * k;
+  ctx.drawImage(e.c, left, y - e.by * k, e.c.width / dpr * k, e.c.height / dpr * k);
+}
+function niceCount(v) { return v >= 100 ? fmt.format(Math.round(v)) : v >= 10 ? fmt1.format(v) : v >= 0.1 ? (Math.round(v * 10) / 10).toString() : '<0.1'; }
+function drawEquals(x, mid, w, fs, t) {
+  const h = fs * 0.4, gap = fs * 0.24, r = h / 2, lw = fs * 0.11;
+  const wob = reduceMotion ? 0 : Math.sin(t * 3) * 0.06;
+  ctx.save(); ctx.translate(x + w / 2, mid); ctx.rotate(-0.08 + wob); ctx.scale(1 + wob * 0.6, 1 + wob * 0.6);
+  for (const dy of [-gap / 2 - h, gap / 2]) {
+    ctx.fillStyle = '#12336B'; rrect(ctx, -w / 2, dy + fs * 0.1, w, h, r); ctx.fill();
+    ctx.fillStyle = dy < 0 ? '#FF4FA3' : '#FF8A3D'; rrect(ctx, -w / 2, dy, w, h, r); ctx.fill();
+    ctx.lineWidth = lw; ctx.strokeStyle = '#12336B'; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; rrect(ctx, -w / 2 + h * 0.5, dy + h * 0.18, w * 0.45, h * 0.22, h * 0.11); ctx.fill();
+  }
+  ctx.restore();
+}
+// Stacked rows under a glass: "= burger × n", "= chocolate bar × n", "= toilet roll × n", each row centred on the glass.
+const EQUIV = [
+  { ml: BURGER_ML, draw: drawBurger, fill: '#FFD23F', rim: '#E8590C' },
+  { ml: CHOC_ML, draw: drawChoc, fill: '#FFE1C4', rim: '#8A4B22' },
+  { ml: ROLL_ML, draw: drawRoll, fill: '#FFFFFF', rim: '#E64C9A' },
+];
+function drawEquation(cl, cx, top, fs, t) {
+  const eqW = fs * 1.7, icon = fs * 2.1, gap = fs * 0.4, rowH = fs * 2.35;
+  EQUIV.forEach((q, r) => {
+    const txt = '× ' + niceCount(cl.ml / q.ml);
+    const te = textImg(txt, fs, q.fill, q.rim), tw = te.tw * fs / te.q;
+    let x = cx - (eqW + gap + icon + gap * 0.3 + tw) / 2;
+    const mid = top + r * rowH, bounce = reduceMotion ? 0 : Math.sin(t * 2.4 + r * 1.3) * fs * 0.06;
+    drawEquals(x, mid, eqW, fs * 0.85, t + r * 0.7); x += eqW + gap;
+    vec(ctx, q.draw, x, mid - icon / 2 + bounce, icon, { blink: blinking(t, r * 1.7 + cx * 0.013) }); x += icon + gap * 0.3;
+    ctx.textAlign = 'left'; bubbleText(txt, x, mid + fs * 0.35, fs, q.fill, q.rim); ctx.textAlign = 'center';
+  });
+}
+
+/* ---------- HUD ---------- */
+// The line under the big number: water, equivalents and energy for `ml` (the cups on screen).
+let lastSub = '';
+function renderSub(ml) {
+  const L = ml / 1000, html = `<b>${L < 10 ? fmt1.format(L) : fmt.format(Math.round(L))} L</b> of water · ` + (ground ? `<b>${niceCount(ml / BURGER_ML)}</b> burgers · <b>${niceCount(ml / CHOC_ML)}</b> chocolate bars · <b>${niceCount(ml / ROLL_ML)}</b> toilet rolls · ` : '') + `${fmt1.format(ml / RATES[rate] / 1000)} kWh`;
+  if (html !== lastSub) { $('sub').innerHTML = html; lastSub = html; }
+}
+function renderHud() {
+  lastSub = ''; renderSub(totals.ml);
+  $('sub').title = source;
+  const lg = $('legend'); lg.innerHTML = '';
+  clusters.forEach(cl => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.hidden = true; cl.chip = b; // shown by frame() while this glass is wholly on screen
+    const n = cl.cups < 1 ? '<1' : fmt.format(Math.round(cl.cups));
+    b.innerHTML = `<span class="n">${n} cups</span><span class="m"></span>` + (ground ? `<span class="e">= ${niceCount(cl.ml / BURGER_ML)} burgers · ${niceCount(cl.ml / CHOC_ML)} choc bars · ${niceCount(cl.ml / ROLL_ML)} rolls</span>` : '');
+    b.querySelector('.m').textContent = cl.name;
+    b.onclick = () => flyTo(cl.x, cl.y, Math.min(Math.min(W * 0.8, H * 0.62) / (2 * Math.max(cl.hw, cl.up)), heroScale()), 1.6);
+    lg.appendChild(b);
+  });
+}
+
+/* ---------- parsing the usage file ---------- */
+function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+function suffixNum(s) {
+  const m = String(s).trim().match(/^([\d.,]+)\s*([kmbt])?/i); if (!m) return 0;
+  return parseFloat(m[1].replace(/,/g, '')) * ({ k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[(m[2] || '').toLowerCase()] || 1);
+}
+function pretty(id) {
+  if (!/^claude-/i.test(id)) return id;
+  let tag = '', s = id.replace(/^claude-/i, '').replace(/-\d{8}$/, '').replace(/\[(.+?)\]$/, (_, a) => { tag = ' (' + a.toUpperCase() + ')'; return ''; });
+  const parts = s.split('-');
+  const fam = parts.filter(p => /[a-z]/i.test(p)).map(p => p[0].toUpperCase() + p.slice(1));
+  const ver = parts.filter(p => /^\d+$/.test(p));
+  return (fam.join(' ') + ' ' + ver.join('.')).trim() + tag;
+}
+function usageOf(u) {
+  if (!u || typeof u !== 'object') return null;
+  const i = u.inputTokens ?? u.input_tokens, o = u.outputTokens ?? u.output_tokens;
+  if (typeof i !== 'number' && typeof o !== 'number') return null;
+  return { in: num(i), out: num(o), read: num(u.cacheReadInputTokens ?? u.cache_read_input_tokens), write: num(u.cacheCreationInputTokens ?? u.cache_creation_input_tokens) };
+}
+function add(acc, id, u) {
+  if (!id || id === '<synthetic>') return;
+  const m = acc.get(id) || { id, in: 0, out: 0, read: 0, write: 0 };
+  m.in += u.in; m.out += u.out; m.read += u.read; m.write += u.write; acc.set(id, m);
+}
+function ingestLine(o, acc, seen) {
+  const msg = o && (o.message || o); const u = usageOf(msg && msg.usage);
+  if (!u) return false;
+  const key = msg.id ? msg.id + '|' + (o.requestId || '') : null;
+  if (key) { if (seen.has(key)) return true; seen.add(key); }
+  add(acc, msg.model || o.model || 'Unknown model', u); return true;
+}
+function walk(obj, key, model, acc, depth) {
+  if (!obj || typeof obj !== 'object' || depth > 8) return false;
+  const u = usageOf(obj);
+  if (u) { add(acc, obj.model || model || key || 'Unknown model', u); return true; }
+  let hit = false; const m = typeof obj.model === 'string' ? obj.model : model;
+  for (const [k, v] of Object.entries(obj)) if (v && typeof v === 'object') hit = walk(v, Array.isArray(obj) ? key : k, m, acc, depth + 1) || hit;
+  return hit;
+}
+function parseStatsText(text) {
+  const names = [...text.matchAll(/(?:^|\s{2,}|[●•○◦*])\s*([A-Za-z][\w .\-]*?)\s*\(([\d.]+)%\)/gm)].map(m => m[1].trim() + ' (' + m[2] + '%)');
+  const io = [...text.matchAll(/In:\s*([\d.,]+\s*[kmbt]?)\s*[·•|,]?\s*Out:\s*([\d.,]+\s*[kmbt]?)/gi)];
+  const ca = [...text.matchAll(/Cache:\s*([\d.,]+\s*[kmbt]?)\s*read\s*[·•|,]?\s*([\d.,]+\s*[kmbt]?)\s*write/gi)];
+  const n = Math.min(names.length, io.length);
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ name: names[i], in: suffixNum(io[i][1]), out: suffixNum(io[i][2]), read: ca[i] ? suffixNum(ca[i][1]) : 0, write: ca[i] ? suffixNum(ca[i][2]) : 0 });
+  return out;
+}
+function parseAll(texts) {
+  const acc = new Map(), seen = new Set(), textModels = [];
+  for (const raw of texts) {
+    const tr = raw.trim(); if (!tr) continue;
+    let obj; try { obj = JSON.parse(tr); } catch (e) { obj = undefined; }
+    if (obj && typeof obj === 'object') {
+      if (obj.modelUsage && typeof obj.modelUsage === 'object') { for (const [id, u] of Object.entries(obj.modelUsage)) { const x = usageOf(u); if (x) add(acc, id, x); } continue; }
+      if (Array.isArray(obj)) { obj.forEach(o => ingestLine(o, acc, seen) || walk(o, null, null, acc, 0)); continue; }
+      if (!ingestLine(obj, acc, seen)) walk(obj, null, null, acc, 0);
+      continue;
+    }
+    let jl = 0;
+    for (const ln of tr.split(/\r?\n/)) { const s = ln.trim(); if (s[0] !== '{') continue; try { const o = JSON.parse(s); jl++; ingestLine(o, acc, seen); } catch (e) {} }
+    if (jl) continue;
+    textModels.push(...parseStatsText(tr));
+  }
+  let list = [...acc.values()].map(m => ({ ...m, name: pretty(m.id) }));
+  const tot = list.reduce((a, m) => a + m.in + m.out + m.read + m.write, 0) || 1;
+  const counts = {}; list.forEach(m => counts[m.name] = (counts[m.name] || 0) + 1);
+  list.forEach(m => { if (counts[m.name] > 1) m.name += ' (' + fmt1.format((m.in + m.out + m.read + m.write) / tot * 100) + '%)'; });
+  list = list.concat(textModels).filter(m => m.in + m.out + m.read + m.write > 0);
+  return list;
+}
+
+/* ---------- load sheet ---------- */
+const wrap = $('sheetWrap');
+function openSheet() { wrap.hidden = false; $('msg').textContent = ''; $('msg').className = 'msg'; setTimeout(() => $('close').focus(), 0); }
+function closeSheet() { wrap.hidden = true; $('load').focus(); }
+$('load').onclick = openSheet; $('close').onclick = closeSheet;
+wrap.addEventListener('click', e => { if (e.target === wrap) closeSheet(); });
+function say(t, err) { $('msg').textContent = t; $('msg').className = 'msg' + (err ? ' err' : ''); }
+function apply(list, label) {
+  if (!list.length) { say("Couldn't find any token counts in that. Try stats-cache.json, a session .jsonl, or the text /stats copies with Ctrl+S.", true); return false; }
+  models = list; source = label; manual = true; build(); stormView();
+  // remember these numbers in this browser so the page opens with them next time
+  try { localStorage.setItem('cupstorm.models', JSON.stringify({ models: list.map(({ name, id, in: i, out, read, write }) => ({ name, id, in: i, out, read, write })), source: label, at: Date.now() })); } catch (e) {}
+  say(`Loaded ${list.length} model${list.length > 1 ? 's' : ''} from ${label}.`);
+  return true;
+}
+async function readFiles(files) {
+  if (!files || !files.length) return;
+  say('Reading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '…');
+  try {
+    const texts = await Promise.all([...files].map(f => f.text()));
+    apply(parseAll(texts), files.length === 1 ? files[0].name : files.length + ' files');
+  } catch (e) { say('Could not read that file: ' + e.message, true); }
+}
+$('file').addEventListener('change', e => { readFiles(e.target.files); e.target.value = ''; });
+$('usePaste').onclick = () => apply(parseAll([$('paste').value]), 'pasted text');
+$('useSample').onclick = async () => {
+  try { localStorage.removeItem('cupstorm.models'); } catch (e) {}
+  manual = false; liveText = '';
+  if (await loadLive()) { stormView(); say('Back to your live stats.'); return; }
+  models = SAMPLE; source = 'Numbers from your /stats screenshots'; build(); stormView(); say('Back to the numbers from your screenshots.');
+};
+$('rate').addEventListener('change', e => { rate = e.target.value; try { localStorage.setItem('cupstorm.rate', rate); } catch (er) {} build(); stormView(); });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(t => addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); if (wrap.hidden) openSheet(); }));
+addEventListener('dragleave', e => { if (!e.relatedTarget) drop.classList.remove('over'); });
+addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); readFiles(e.dataTransfer && e.dataTransfer.files); });
+addEventListener('paste', e => {
+  if (e.target && e.target.closest && e.target.closest('textarea,input')) return;
+  const txt = e.clipboardData && e.clipboardData.getData('text');
+  if (txt) { if (wrap.hidden) openSheet(); $('paste').value = txt; apply(parseAll([txt]), 'pasted text'); }
+});
+
+/* ---------- live stats ----------
+   serve.py hands out ~/.claude/stats-cache.json at ./stats-cache.json, read fresh on every request.
+   Opened straight from disk (file://) the fetch fails and the page falls back to saved or screenshot numbers. */
+let liveText = '', manual = false;
+async function loadLive() {
+  if (manual) return false;
+  let text;
+  try { const r = await fetch('stats-cache.json', { cache: 'no-store' }); if (!r.ok) return false; text = await r.text(); } catch (e) { return false; }
+  if (text === liveText) return true;
+  const list = parseAll([text]); if (!list.length) return false;
+  let when = ''; try { when = JSON.parse(text).lastComputedDate || ''; } catch (e) {}
+  liveText = text; models = list; source = 'Live from ~/.claude/stats-cache.json' + (when ? ' (computed ' + when + ')' : '');
+  $('useSample').textContent = 'Back to my live stats';
+  build();
+  return true;
+}
+// pick up new totals when the tab comes back, and every minute while it is open
+document.addEventListener('visibilitychange', () => { if (!document.hidden && liveText) loadLive(); });
+setInterval(() => { if (!document.hidden && liveText) loadLive(); }, 60000);
+
+/* ---------- go ---------- */
+// open with the numbers loaded last time in this browser, if any
+try {
+  const saved = JSON.parse(localStorage.getItem('cupstorm.models') || 'null');
+  if (saved && Array.isArray(saved.models) && saved.models.length) {
+    models = saved.models.filter(m => m && typeof m.name === 'string').map(m => ({ name: m.name, id: m.id, in: +m.in || 0, out: +m.out || 0, read: +m.read || 0, write: +m.write || 0 }));
+    source = (saved.source || 'your file') + ' (loaded ' + new Date(saved.at).toLocaleDateString() + ')';
+    if (!models.length) models = SAMPLE;
+  }
+} catch (e) { models = SAMPLE; }
+resize();
+const start = () => {
+  cam.x = clusters[0] ? clusters[0].x + clusters[0].xs[0] : 0; cam.y = clusters[0] ? clusters[0].y + clusters[0].ys[0] : 0; cam.s = heroScale();
+  if (document.fonts && document.fonts.load) document.fonts.load('40px Chewy').catch(() => {});
+  requestAnimationFrame(frame);
+};
+loadLive().then(ok => {
+  if (!ok) build();
+  start();
+  // Opened straight from disk: if serve.py is running, move to it so the live stats load.
+  if (!ok && location.protocol === 'file:') {
+    fetch('http://localhost:8765/stats-cache.json', { mode: 'no-cors', cache: 'no-store' })
+      .then(() => location.replace('http://localhost:8765/'))
+      .catch(() => { source += ' · run Claudy Day.cmd (or python serve.py) for live stats'; $('sub').title = source; });
+  }
+});
+})();
+</script>
+
+</body>
+</html>
